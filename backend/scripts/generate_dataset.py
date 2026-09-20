@@ -8,6 +8,7 @@ This script creates realistic airport data with patterns for:
 
 import pandas as pd
 import numpy as np
+import os
 from datetime import datetime, timedelta
 
 # Set random seed for reproducibility
@@ -115,8 +116,11 @@ if __name__ == "__main__":
     print("Generating synthetic airport data...")
     df = generate_airport_data(5000)
     
-    # Save to raw folder
-    output_path = '../datasets/raw/airport_data.csv'
+    # Save to raw folder (path relative to this script, not CWD)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.abspath(os.path.join(script_dir, '..', 'datasets', 'raw'))
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'airport_data.csv')
     df.to_csv(output_path, index=False)
     
     print(f"\n✅ Dataset created successfully!")

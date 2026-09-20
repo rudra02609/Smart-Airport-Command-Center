@@ -1,21 +1,33 @@
 """
-Train Machine Learning models for airport predictions
+Train Machine Learning models for airport predictions.
 Models: Passenger Flow, Queue Length, Waiting Time
+Algorithms: Random Forest Regressor (primary) + Linear Regression (comparison)
 """
 
 import sys
+# Configure UTF-8 encoding for standard output on Windows to avoid UnicodeEncodeError
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.services.preprocessing import DataPreprocessor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import pandas as pd
 import numpy as np
 import joblib
 import json
+from app.services.preprocessing import DataPreprocessor, FEATURE_COLUMNS
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
 
 def evaluate_model(y_true, y_pred, model_name):
-    """Calculate evaluation metrics"""
+    """Calculate and display evaluation metrics."""
     mae = mean_absolute_error(y_true, y_pred)
     mse = mean_squared_error(y_true, y_pred)
     rmse = np.sqrt(mse)
@@ -24,23 +36,27 @@ def evaluate_model(y_true, y_pred, model_name):
     print(f"\n{'='*60}")
     print(f"📊 {model_name} - Evaluation Metrics")
     print(f"{'='*60}")
-    print(f"Mean Absolute Error (MAE):  {mae:.2f}")
-    print(f"Mean Squared Error (MSE):   {mse:.2f}")
+    print(f"Mean Absolute Error (MAE):      {mae:.2f}")
+    print(f"Mean Squared Error (MSE):       {mse:.2f}")
     print(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
-    print(f"R² Score:                   {r2:.4f}")
+    print(f"R² Score:                       {r2:.4f}")
     print(f"{'='*60}\n")
     
     return {
-        'mae': mae,
-        'mse': mse,
-        'rmse': rmse,
-        'r2': r2
+        'mae': round(mae, 4),
+        'mse': round(mse, 4),
+        'rmse': round(rmse, 4),
+        'r2': round(r2, 4)
     }
 
+
 def train_model(target_name, target_column, raw_data_path):
-    """Train a Random Forest model for a specific target"""
+    """
+    Train both Random Forest and Linear Regression models for a specific target.
+    Returns the RF model (primary), preprocessor, and metrics for both algorithms.
+    """
     print(f"\n{'#'*60}")
-    print(f"🚀 Training Model: {target_name}")
+    print(f"🚀 Training Models: {target_name}")
     print(f"{'#'*60}")
     
     # Preprocess data
@@ -49,9 +65,9 @@ def train_model(target_name, target_column, raw_data_path):
         raw_data_path, target_column
     )
     
-    # Train Random Forest model
+    # ===== Random Forest Regressor (Primary) =====
     print(f"\n🤖 Training Random Forest Regressor...")
-    model = RandomForestRegressor(
+    rf_model = RandomForestRegressor(
         n_estimators=100,
         max_depth=20,
         min_samples_split=5,
@@ -59,47 +75,76 @@ def train_model(target_name, target_column, raw_data_path):
         random_state=42,
         n_jobs=-1
     )
-    model.fit(X_train, y_train)
-    print("✅ Model training completed")
+    rf_model.fit(X_train, y_train)
+    print("✅ Random Forest training completed")
     
-    # Make predictions
-    y_pred_train = model.predict(X_train)
-    y_pred_test = model.predict(X_test)
+    # Evaluate RF
+    rf_pred_train = rf_model.predict(X_train)
+    rf_pred_test = rf_model.predict(X_test)
     
-    # Evaluate on training set
-    print("\n📈 Training Set Performance:")
-    train_metrics = evaluate_model(y_train, y_pred_train, f"{target_name} (Train)")
+    print("\n📈 Random Forest - Training Set:")
+    rf_train_metrics = evaluate_model(y_train, rf_pred_train, f"{target_name} RF (Train)")
     
-    # Evaluate on test set
-    print("\n📉 Test Set Performance:")
-    test_metrics = evaluate_model(y_test, y_pred_test, f"{target_name} (Test)")
+    print("\n📉 Random Forest - Test Set:")
+    rf_test_metrics = evaluate_model(y_test, rf_pred_test, f"{target_name} RF (Test)")
     
-    # Feature importance
-    feature_names = [
-        'hour', 'day_of_week', 'is_weekend', 'is_peak_hour',
-        'num_flights', 'security_staff', 'checkin_staff',
-        'gates_available', 'is_holiday_season', 'baggage_volume',
-        'international_ratio', 'terminal_encoded', 'weather_encoded',
-        'total_staff', 'staff_per_flight',
-        'is_morning', 'is_afternoon', 'is_evening', 'is_night'
-    ]
+    # ===== Linear Regression (Comparison) =====
+    print(f"\n🤖 Training Linear Regression (comparison)...")
+    lr_model = LinearRegression()
+    lr_model.fit(X_train, y_train)
+    print("✅ Linear Regression training completed")
+    
+    # Evaluate LR
+    lr_pred_train = lr_model.predict(X_train)
+    lr_pred_test = lr_model.predict(X_test)
+    
+    print("\n📈 Linear Regression - Training Set:")
+    lr_train_metrics = evaluate_model(y_train, lr_pred_train, f"{target_name} LR (Train)")
+    
+    print("\n📉 Linear Regression - Test Set:")
+    lr_test_metrics = evaluate_model(y_test, lr_pred_test, f"{target_name} LR (Test)")
+    
+    # ===== Comparison =====
+    print(f"\n{'='*60}")
+    print(f"📊 MODEL COMPARISON: {target_name}")
+    print(f"{'='*60}")
+    print(f"{'Metric':<12} {'Random Forest':>15} {'Linear Reg':>15} {'Winner':>15}")
+    print(f"{'-'*57}")
+    for metric in ['mae', 'rmse', 'r2']:
+        rf_val = rf_test_metrics[metric]
+        lr_val = lr_test_metrics[metric]
+        if metric == 'r2':
+            winner = 'RF ✅' if rf_val > lr_val else 'LR ✅'
+        else:
+            winner = 'RF ✅' if rf_val < lr_val else 'LR ✅'
+        print(f"{metric.upper():<12} {rf_val:>15.4f} {lr_val:>15.4f} {winner:>15}")
+    print(f"{'='*60}")
+    
+    # Feature importance (RF only)
+    feature_names = FEATURE_COLUMNS
     
     feature_importance = pd.DataFrame({
         'feature': feature_names,
-        'importance': model.feature_importances_
+        'importance': rf_model.feature_importances_
     }).sort_values('importance', ascending=False)
     
-    print("\n🎯 Top 5 Important Features:")
+    print("\n🎯 Top 5 Important Features (Random Forest):")
     print(feature_importance.head().to_string(index=False))
     
-    return model, preprocessor, test_metrics, feature_importance
+    metrics = {
+        'random_forest': rf_test_metrics,
+        'linear_regression': lr_test_metrics,
+        'selected_model': 'random_forest'
+    }
+    
+    return rf_model, preprocessor, metrics, feature_importance
+
 
 if __name__ == "__main__":
-    import pandas as pd
-    
-    # Paths
-    raw_data_path = '../datasets/raw/airport_data.csv'
-    models_dir = '../models'
+    # Resolve paths relative to this script directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    raw_data_path = os.path.abspath(os.path.join(script_dir, '../datasets/raw/airport_data.csv'))
+    models_dir = os.path.abspath(os.path.join(script_dir, '../models'))
     
     # Create models directory if it doesn't exist
     os.makedirs(models_dir, exist_ok=True)
@@ -109,6 +154,7 @@ if __name__ == "__main__":
     
     print("\n" + "="*60)
     print("🏗️  SMART AIRPORT COMMAND CENTER - MODEL TRAINING")
+    print("    Random Forest (Primary) + Linear Regression (Comparison)")
     print("="*60)
     
     # 1. Train Passenger Flow Model
@@ -159,20 +205,22 @@ if __name__ == "__main__":
     print("="*60)
     print(f"\n📁 Models saved in: {models_dir}/")
     print("\nModel Files:")
-    print("  • passenger_flow_model.pkl")
-    print("  • queue_length_model.pkl")
-    print("  • waiting_time_model.pkl")
+    print("  • passenger_flow_model.pkl (Random Forest)")
+    print("  • queue_length_model.pkl (Random Forest)")
+    print("  • waiting_time_model.pkl (Random Forest)")
     print("\nEncoder Files:")
     print("  • passenger_flow_encoders.pkl")
     print("  • queue_length_encoders.pkl")
     print("  • waiting_time_encoders.pkl")
-    print("\nMetrics:")
-    print("  • model_metrics.json")
+    print("\nMetrics: model_metrics.json")
     
-    print("\n📊 SUMMARY OF MODEL PERFORMANCE:")
+    print("\n" + "="*60)
+    print("📊 FINAL MODEL COMPARISON SUMMARY")
     print("="*60)
     for model_name, metrics in all_metrics.items():
+        rf = metrics['random_forest']
+        lr = metrics['linear_regression']
         print(f"\n{model_name.upper().replace('_', ' ')}:")
-        print(f"  R² Score: {metrics['r2']:.4f}")
-        print(f"  RMSE: {metrics['rmse']:.2f}")
-        print(f"  MAE: {metrics['mae']:.2f}")
+        print(f"  Random Forest  → R²: {rf['r2']:.4f}, RMSE: {rf['rmse']:.2f}, MAE: {rf['mae']:.2f}")
+        print(f"  Linear Regr.   → R²: {lr['r2']:.4f}, RMSE: {lr['rmse']:.2f}, MAE: {lr['mae']:.2f}")
+        print(f"  Selected: {metrics['selected_model'].replace('_', ' ').title()} ✅")

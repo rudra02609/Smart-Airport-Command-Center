@@ -1,9 +1,16 @@
 """
-Pydantic models for request/response validation
+Pydantic models for request/response validation.
+Includes schemas for predictions, alerts, auth, and security.
 """
 
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
+from datetime import datetime
+
+
+# ============================================================
+# PREDICTION SCHEMAS (existing - preserved)
+# ============================================================
 
 class PredictionInput(BaseModel):
     """Input schema for all prediction endpoints"""
@@ -19,7 +26,7 @@ class PredictionInput(BaseModel):
     is_holiday_season: int = Field(..., ge=0, le=1, description="Is holiday season (0=No, 1=Yes)")
     baggage_volume: int = Field(..., ge=0, description="Expected baggage volume")
     international_ratio: float = Field(..., ge=0.0, le=1.0, description="Ratio of international flights")
-    weather: Literal["Clear", "Rainy", "Foggy"] = Field(..., description="Weather condition")
+    weather: Literal["Clear", "Rainy", "Foggy"] = Field(..., description="Weather condition") 
     
     model_config = {
         "json_schema_extra": {
@@ -46,20 +53,79 @@ class PassengerFlowResponse(BaseModel):
     predicted_passenger_flow: float = Field(..., description="Predicted number of passengers")
     input_data: dict = Field(..., description="Input data used for prediction")
     model: str = Field(default="Random Forest Regressor", description="Model used")
+    # Enhanced fields
+    congestion_level: Optional[str] = Field(None, description="Overall congestion level")
+    security_risk_score: Optional[int] = Field(None, description="Security Risk Score (0-100)")
+    alerts: Optional[list] = Field(default=None, description="Generated alerts")
+    recommendations: Optional[list] = Field(default=None, description="Staff recommendations")
     
 class QueueLengthResponse(BaseModel):
     """Response schema for queue length prediction"""
     predicted_queue_length: float = Field(..., description="Predicted queue length (number of people)")
     input_data: dict = Field(..., description="Input data used for prediction")
     model: str = Field(default="Random Forest Regressor", description="Model used")
+    # Enhanced fields
+    congestion_level: Optional[str] = Field(None, description="Overall congestion level")
+    security_risk_score: Optional[int] = Field(None, description="Security Risk Score (0-100)")
+    alerts: Optional[list] = Field(default=None, description="Generated alerts")
+    recommendations: Optional[list] = Field(default=None, description="Staff recommendations")
 
 class WaitingTimeResponse(BaseModel):
     """Response schema for waiting time prediction"""
     predicted_waiting_time: float = Field(..., description="Predicted waiting time (minutes)")
     input_data: dict = Field(..., description="Input data used for prediction")
     model: str = Field(default="Random Forest Regressor", description="Model used")
+    # Enhanced fields
+    congestion_level: Optional[str] = Field(None, description="Overall congestion level")
+    security_risk_score: Optional[int] = Field(None, description="Security Risk Score (0-100)")
+    alerts: Optional[list] = Field(default=None, description="Generated alerts")
+    recommendations: Optional[list] = Field(default=None, description="Staff recommendations")
 
 class ErrorResponse(BaseModel):
     """Error response schema"""
     error: str = Field(..., description="Error message")
     detail: str = Field(None, description="Detailed error information")
+
+
+# ============================================================
+# FULL ANALYSIS SCHEMA (new)
+# ============================================================
+
+class FullAnalysisResponse(BaseModel):
+    """Combined response with all predictions, alerts, risk score, and recommendations."""
+    # Predictions
+    passenger_flow: float = Field(..., description="Predicted passenger flow")
+    queue_length: float = Field(..., description="Predicted queue length")
+    waiting_time: float = Field(..., description="Predicted waiting time (minutes)")
+    # Analysis
+    congestion_level: str = Field(..., description="Overall congestion level")
+    congestion_score: int = Field(..., description="Congestion score (0-100)")
+    security_risk_score: int = Field(..., description="Security Risk Score (0-100)")
+    overall_severity: str = Field(..., description="Highest alert severity")
+    # Details
+    alerts: list = Field(default_factory=list, description="Generated alerts")
+    recommendations: list = Field(default_factory=list, description="Staff recommendations")
+    input_data: dict = Field(..., description="Input data used")
+    model: str = Field(default="Random Forest Regressor", description="ML model used")
+
+
+# ============================================================
+# ALERT SCHEMAS (new)
+# ============================================================
+
+class AlertEvaluationInput(BaseModel):
+    """Input for manual alert evaluation (without running predictions)."""
+    passenger_flow: float = Field(..., ge=0, description="Passenger flow value")
+    queue_length: float = Field(..., ge=0, description="Queue length value")
+    waiting_time: float = Field(..., ge=0, description="Waiting time in minutes")
+    security_staff: int = Field(default=0, ge=0, description="Current security staff")
+    checkin_staff: int = Field(default=0, ge=0, description="Current check-in staff")
+
+
+# ============================================================
+# SECURITY SCHEMAS (new)
+# ============================================================
+
+class AnomalyCheckInput(BaseModel):
+    """Input for anomaly detection check."""
+    ip_address: Optional[str] = Field(None, description="IP address to check (optional, defaults to requester)")

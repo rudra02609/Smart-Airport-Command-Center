@@ -9,6 +9,19 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 import os
 
+# Feature columns used for training and inference (order matters).
+# Must stay in sync between training (DataPreprocessor.prepare_features)
+# and inference (preprocess_single_input).
+FEATURE_COLUMNS = [
+    'hour', 'day_of_week', 'is_weekend', 'is_peak_hour',
+    'num_flights', 'security_staff', 'checkin_staff',
+    'gates_available', 'is_holiday_season', 'baggage_volume',
+    'international_ratio', 'terminal_encoded', 'weather_encoded',
+    'total_staff', 'staff_per_flight',
+    'is_morning', 'is_afternoon', 'is_evening', 'is_night'
+]
+
+
 class DataPreprocessor:
     """
     Handles all data preprocessing tasks
@@ -73,17 +86,7 @@ class DataPreprocessor:
     
     def prepare_features(self, df, target_column):
         """Prepare features for model training"""
-        # Define feature columns
-        feature_cols = [
-            'hour', 'day_of_week', 'is_weekend', 'is_peak_hour',
-            'num_flights', 'security_staff', 'checkin_staff',
-            'gates_available', 'is_holiday_season', 'baggage_volume',
-            'international_ratio', 'terminal_encoded', 'weather_encoded',
-            'total_staff', 'staff_per_flight',
-            'is_morning', 'is_afternoon', 'is_evening', 'is_night'
-        ]
-        
-        X = df[feature_cols]
+        X = df[FEATURE_COLUMNS]
         y = df[target_column]
         
         return X, y
@@ -125,8 +128,10 @@ class DataPreprocessor:
 
 def preprocess_single_input(input_data, label_encoders):
     """
-    Preprocess a single input for prediction
-    Used by the API for real-time predictions
+    Preprocess a single input for prediction.
+    Used by the API for real-time predictions.
+    Returns a single-row DataFrame with the FEATURE_COLUMNS columns
+    so that sklearn does not complain about missing feature names.
     """
     df = pd.DataFrame([input_data])
     
@@ -144,14 +149,4 @@ def preprocess_single_input(input_data, label_encoders):
     df['is_evening'] = ((df['hour'] >= 18) & (df['hour'] < 24)).astype(int)
     df['is_night'] = ((df['hour'] >= 0) & (df['hour'] < 6)).astype(int)
     
-    # Select feature columns in correct order
-    feature_cols = [
-        'hour', 'day_of_week', 'is_weekend', 'is_peak_hour',
-        'num_flights', 'security_staff', 'checkin_staff',
-        'gates_available', 'is_holiday_season', 'baggage_volume',
-        'international_ratio', 'terminal_encoded', 'weather_encoded',
-        'total_staff', 'staff_per_flight',
-        'is_morning', 'is_afternoon', 'is_evening', 'is_night'
-    ]
-    
-    return df[feature_cols].values[0]
+    return df[FEATURE_COLUMNS]

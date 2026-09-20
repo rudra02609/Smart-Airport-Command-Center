@@ -4,6 +4,7 @@ Prediction service for loading models and making predictions
 
 import joblib
 import os
+import json
 import numpy as np
 from app.services.preprocessing import preprocess_single_input
 
@@ -15,7 +16,21 @@ class PredictionService:
     def __init__(self):
         self.models = {}
         self.encoders = {}
+        self.metrics = {}
         self.models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'models')
+    
+    def load_metrics(self):
+        """Load model_metrics.json if present. Non-fatal on failure."""
+        try:
+            metrics_path = os.path.join(self.models_dir, 'model_metrics.json')
+            if os.path.exists(metrics_path):
+                with open(metrics_path, 'r', encoding='utf-8') as f:
+                    self.metrics = json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load model metrics: {str(e)}")
+            self.metrics = {}
+        
+        return self.metrics
         
     def load_model(self, model_name):
         """Load a specific model and its encoders"""
@@ -49,6 +64,7 @@ class PredictionService:
             except Exception as e:
                 print(f"Warning: Could not load {model_name}: {str(e)}")
         
+        self.load_metrics()
         print(f"\n✅ Loaded {len(self.models)} models successfully")
     
     def predict(self, model_name, input_data):
@@ -56,17 +72,20 @@ class PredictionService:
         try:
             # Check if model is loaded
             if model_name not in self.models:
-                raise ValueError(f"Model {model_name} not loaded")
+                raise ValueError(f"Model {model_name} not loaded. Start the API so models load on startup.")
             
             # Get model and encoders
             model = self.models[model_name]
             encoders = self.encoders[model_name]
             
-            # Preprocess input
+            # Preprocess input (returns a single-row DataFrame with feature names)
             features = preprocess_single_input(input_data, encoders)
             
+            if features.isnull().any().any():
+                raise ValueError("Input data produced missing feature values during encoding")
+            
             # Make prediction
-            prediction = model.predict([features])[0]
+            prediction = model.predict(features)[0]
             
             # Round to reasonable precision
             prediction = round(float(prediction), 2)

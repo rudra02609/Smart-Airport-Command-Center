@@ -1,20 +1,47 @@
 {
   "passenger_flow": {
-    "mae": 338.4644990907826,
-    "mse": 259220.91981118667,
-    "rmse": 509.13742723471694,
-    "r2": 0.9731080015390425
+    "random_forest": {
+      "mae": 338.4645,
+      "mse": 259220.9198,
+      "rmse": 509.1374,
+      "r2": 0.9731
+    },
+    "linear_regression": {
+      "mae": 338.3832,
+      "mse": 250154.221,
+      "rmse": 500.1542,
+      "r2": 0.974
+    },
+    "selected_model": "random_forest"
   },
   "queue_length": {
-    "mae": 6.710105387612386,
-    "mse": 209.56612742892327,
-    "rmse": 14.476398980026879,
-    "r2": 0.626374334224542
+    "random_forest": {
+      "mae": 6.7101,
+      "mse": 209.5661,
+      "rmse": 14.4764,
+      "r2": 0.6264
+    },
+    "linear_regression": {
+      "mae": 10.6822,
+      "mse": 301.7958,
+      "rmse": 17.3723,
+      "r2": 0.4619
+    },
+    "selected_model": "random_forest"
   },
   "waiting_time": {
-    "mae": 9.306073938630307,
-    "mse": 134.4986982831615,
-    "rmse": 11.597357383609488,
-    "r2": 0.6696700062218526
+    "random_forest": {
+      "mae": 9.3061,
+      "mse": 134.4987,
+      "rmse": 11.5974,
+      "r2": 0.6697
+    },
+    "linear_regression": {
+      "mae": 10.218,
+      "mse": 162.3823,
+      "rmse": 12.7429,
+      "r2": 0.6012
+    },
+    "selected_model": "random_forest"
   }
 }
